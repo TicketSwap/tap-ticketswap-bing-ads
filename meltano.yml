@@ -1,0 +1,85 @@
+send_anonymous_usage_stats: true
+project_id: "tap-ticketswap-bing-ads"
+default_environment: test
+requires_meltano: ">=4.0"
+environments:
+- name: test
+plugins:
+  extractors:
+  - name: "tap-ticketswap-bing-ads"
+    namespace: "tap_ticketswap_bing_ads"
+    pip_url: -e .
+    capabilities:
+    - state
+    - catalog
+    - discover
+    - about
+    - stream-maps
+    - structured-logging
+
+    settings:
+    - name: developer_token
+      kind: string
+      label: Developer Token
+      description: Microsoft Advertising developer token.
+      sensitive: true
+
+    - name: oauth_client_id
+      kind: string
+      label: OAuth Client ID
+      description: Azure application (client) id used for OAuth.
+      sensitive: true
+
+    - name: oauth_client_secret
+      kind: string
+      label: OAuth Client Secret
+      description: Azure application client secret used for OAuth.
+      sensitive: true
+
+    - name: refresh_token
+      kind: string
+      label: Refresh Token
+      description: OAuth refresh token used to obtain access tokens.
+      sensitive: true
+
+    - name: customer_id
+      kind: string
+      label: Customer ID
+      description: Microsoft Advertising manager (customer) id.
+
+    - name: account_ids
+      kind: string
+      label: Account IDs
+      description: Comma-separated list of account ids to sync.
+
+    - name: start_date
+      kind: date_iso8601
+      label: Start Date
+      description: Earliest report date to sync (YYYY-MM-DDTHH:MM:SSZ).
+
+    - name: conversion_window
+      kind: integer
+      label: Conversion Window
+      description: Number of days before the bookmark to re-sync on each run.
+      value: 30
+
+    - name: report_max_days
+      kind: integer
+      label: Report Window Size
+      description: Maximum number of days requested per report call.
+      value: 30
+
+    settings_group_validation:
+    - [developer_token, oauth_client_id, oauth_client_secret, refresh_token, customer_id, account_ids, start_date]
+
+    config:
+      start_date: "2023-01-01T00:00:00Z"
+
+    select:
+    - "campaigns.*"
+    - "campaign_performance_report.*"
+
+  loaders:
+  - name: target-jsonl
+    variant: andyh1203
+    pip_url: target-jsonl
