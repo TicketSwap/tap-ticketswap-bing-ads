@@ -34,6 +34,12 @@ def _months_ago(dt: datetime, months: int) -> datetime:
     return dt.replace(year=total // 12, month=total % 12 + 1, day=1)
 
 
+def _parse_datetime(value: str) -> datetime:
+    """Parse an ISO date or date-time bookmark into a UTC-aware datetime."""
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 # Reporting faults raised when a requested date range falls outside retention.
 _DATE_RANGE_ERROR_CODES = ("InvalidCustomDateRangeStart", "InvalidCustomDateRangeEnd")
 
@@ -120,9 +126,12 @@ class CampaignPerformanceReportStream(BingAdsStream):
     def _date_range(self, context: Context | None) -> tuple[datetime, datetime]:
         """Return the (start, end) range to request, applying the conversion window."""
         conversion_window = int(self.config.get("conversion_window", 30))
-        start = self.get_starting_timestamp(context)
-        if start is None:
-            start = datetime.fromisoformat(self.config["start_date"])
+        # TimePeriod is a date (not date-time), so we read the bookmark directly
+        # rather than via get_starting_timestamp(), which requires a timestamp key.
+        bookmark = self.get_starting_replication_key_value(context)
+        start = (
+            _parse_datetime(bookmark) if bookmark else _parse_datetime(self.config["start_date"])
+        )
         start = start - timedelta(days=conversion_window)
         now = datetime.now(tz=timezone.utc)
         # Clamp to the 36-month retention window; older data is unavailable.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from tap_ticketswap_bing_ads.streams import _months_ago
+from tap_ticketswap_bing_ads.streams import _months_ago, _parse_datetime
 from tap_ticketswap_bing_ads.tap import TapBingAds
 
 SAMPLE_CONFIG = {
@@ -99,3 +99,10 @@ def test_months_ago_snaps_to_first_of_month() -> None:
     assert _months_ago(datetime(2026, 1, 15, tzinfo=timezone.utc), 1) == datetime(
         2025, 12, 1, tzinfo=timezone.utc
     )
+
+
+def test_parse_datetime_handles_bookmarks() -> None:
+    """Both the start_date (Z-suffixed) and a date-only bookmark parse to UTC."""
+    assert _parse_datetime("2023-01-01T00:00:00Z") == datetime(2023, 1, 1, tzinfo=timezone.utc)
+    # A stored TimePeriod bookmark is a bare date; it must become UTC-aware.
+    assert _parse_datetime("2024-05-01") == datetime(2024, 5, 1, tzinfo=timezone.utc)
