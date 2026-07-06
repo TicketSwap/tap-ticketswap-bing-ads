@@ -82,7 +82,10 @@ class CampaignPerformanceReportStream(BingAdsStream):
 
     name = "campaign_performance_report"
     service_name = "ReportingService"
-    primary_keys: ClassVar[tuple[str, ...]] = ()
+    # Row grain: one row per campaign/device/network/day. Declaring it as the
+    # primary key gives the ReplacingMergeTree target a proper ORDER BY so rows
+    # are not collapsed into one on OPTIMIZE. Matches the dbt staging dedup.
+    primary_keys: ClassVar[tuple[str, ...]] = ("TimePeriod", "CampaignId", "DeviceType", "Network")
     replication_key = "TimePeriod"
     is_sorted = False
     schema = schemas.CAMPAIGN_PERFORMANCE_REPORT

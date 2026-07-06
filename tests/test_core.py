@@ -37,6 +37,14 @@ def test_stream_replication() -> None:
     streams = {stream.name: stream for stream in _tap().discover_streams()}
     assert streams["campaigns"].replication_key is None
     assert streams["campaign_performance_report"].replication_key == "TimePeriod"
+    # The report grain must be a primary key so the ReplacingMergeTree target
+    # gets a real ORDER BY and does not collapse rows on OPTIMIZE.
+    assert tuple(streams["campaign_performance_report"].primary_keys) == (
+        "TimePeriod",
+        "CampaignId",
+        "DeviceType",
+        "Network",
+    )
 
 
 def test_report_schema_contains_dbt_columns() -> None:
