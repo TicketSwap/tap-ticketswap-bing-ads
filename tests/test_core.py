@@ -6,6 +6,9 @@ Bing Ads API, so they run in CI without credentials.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+from tap_ticketswap_bing_ads.streams import _months_ago
 from tap_ticketswap_bing_ads.tap import TapBingAds
 
 SAMPLE_CONFIG = {
@@ -86,3 +89,13 @@ def test_post_process_coerces_types() -> None:
     assert row["AverageCpc"] is None
     assert row["TimePeriod"] == "2024-01-15"
     assert row["CampaignId"] == "123"
+
+
+def test_months_ago_snaps_to_first_of_month() -> None:
+    """The retention clamp shifts back whole months to the first of the month."""
+    now = datetime(2026, 7, 6, tzinfo=timezone.utc)
+    assert _months_ago(now, 36) == datetime(2023, 7, 1, tzinfo=timezone.utc)
+    # December boundary crossing.
+    assert _months_ago(datetime(2026, 1, 15, tzinfo=timezone.utc), 1) == datetime(
+        2025, 12, 1, tzinfo=timezone.utc
+    )

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bingads.v13.reporting import ReportingDownloadParameters, ReportingServiceManager
+from suds import WebFault
 
 from tap_ticketswap_bing_ads import schemas
 from tap_ticketswap_bing_ads.client import BingAdsStream
@@ -20,6 +21,27 @@ if TYPE_CHECKING:
 
 # CampaignTypes to request; mirrors the set synced by the previous tap.
 _CAMPAIGN_TYPES = "Search Shopping DynamicSearchAds PerformanceMax Audience"
+
+# Microsoft Advertising retains daily CampaignPerformanceReport data for 36 months.
+# Requests older than this are rejected, so we never ask for data before the window.
+# https://learn.microsoft.com/en-us/advertising/guides/report-data-retention-time-periods
+REPORT_RETENTION_MONTHS = 36
+
+
+def _months_ago(dt: datetime, months: int) -> datetime:
+    """Return ``dt`` shifted back by ``months``, snapped to the first of the month."""
+    total = dt.year * 12 + (dt.month - 1) - months
+    return dt.replace(year=total // 12, month=total % 12 + 1, day=1)
+
+
+# Reporting faults raised when a requested date range falls outside retention.
+_DATE_RANGE_ERROR_CODES = ("InvalidCustomDateRangeStart", "InvalidCustomDateRangeEnd")
+
+
+def _is_date_range_error(fault: WebFault) -> bool:
+    """Return True if a SOAP fault indicates an out-of-retention date range."""
+    detail = f"{fault} {getattr(fault, 'document', '')}"
+    return any(code in detail for code in _DATE_RANGE_ERROR_CODES)
 
 
 class CampaignsStream(BingAdsStream):
@@ -102,8 +124,11 @@ class CampaignPerformanceReportStream(BingAdsStream):
         if start is None:
             start = datetime.fromisoformat(self.config["start_date"])
         start = start - timedelta(days=conversion_window)
+        now = datetime.now(tz=timezone.utc)
+        # Clamp to the 36-month retention window; older data is unavailable.
+        start = max(start, _months_ago(now, REPORT_RETENTION_MONTHS))
         # Report through yesterday; today's data is incomplete.
-        end = datetime.now(tz=timezone.utc) - timedelta(days=1)
+        end = now - timedelta(days=1)
         return min(start, end), end
 
     def _download_window(
@@ -123,7 +148,20 @@ class CampaignPerformanceReportStream(BingAdsStream):
                 overwrite_result_file=True,
                 timeout_in_milliseconds=3_600_000,
             )
-            result_path = manager.download_file(parameters)
+            try:
+                result_path = manager.download_file(parameters)
+            except WebFault as fault:
+                if _is_date_range_error(fault):
+                    self.logger.warning(
+                        "Skipping %s for account %s between %s and %s: outside the "
+                        "reporting retention window.",
+                        self.name,
+                        account_id,
+                        start.date(),
+                        end.date(),
+                    )
+                    return
+                raise
             if not result_path:
                 self.logger.info(
                     "No %s data for account %s between %s and %s",
