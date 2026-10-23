@@ -27,9 +27,9 @@ license = "Apache-2.0"
 license-files = [ "LICENSE" ]
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "singer-sdk~=0.54.5",
-    "bingads>=13.0.26",
-    "typing-extensions>=4.5.0; python_version < '3.13'",
+    "singer-sdk~=0.54.9",
+    "bingads>=13.0.30.1",
+    "typing-extensions>=4.16.0; python_version < '3.13'",
 ]
 
 [project.scripts]
@@ -41,12 +41,12 @@ dev = [
     { include-group = "test" },
 ]
 test = [
-    "pytest>=9",
-    "pytest-github-actions-annotate-failures>=0.4",
+    "pytest>=9.1.1",
+    "pytest-github-actions-annotate-failures>=0.4.2",
     "singer-sdk[testing]",
 ]
 typing = [
-    "mypy>=1.19.1",
+    "mypy>=2.4.0",
     "types-requests",
 ]
 
