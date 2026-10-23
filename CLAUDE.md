@@ -48,12 +48,14 @@ Keep `config_jsonschema` in `tap.py`, the `settings` block in `meltano.yml`, and
 
 ```bash
 uv sync
-uv run pytest                       # no credentials needed
+uv run pytest tests/test_core.py    # no credentials needed
 uv run tap-ticketswap-bing-ads --about
 ```
 
 Tests in `tests/test_core.py` cover discovery, config and type coercion without
-hitting the API. A real end-to-end run needs valid Microsoft Ads credentials.
+hitting the API. `tests/test_standard.py` runs the SDK's standard tap tests
+against the API for the last three days and needs the four secret
+`TAP_TICKETSWAP_BING_ADS_*` settings in the environment, as CI passes them.
 
 ## Notes
 

@@ -1,31 +1,83 @@
-name: Test
+name: Test tap-ticketswap-bing-ads
 
 on:
   push:
     branches: [main]
+    paths:
+    - .github/workflows/test.yml
+    - tap_ticketswap_bing_ads/**
+    - tests/**
+    - pyproject.toml
+    - uv.lock
   pull_request:
-    branches: [main]
-  workflow_dispatch: {}
+    paths:
+    - .github/workflows/test.yml
+    - tap_ticketswap_bing_ads/**
+    - tests/**
+    - pyproject.toml
+    - uv.lock
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: 1
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  build-package:
+    name: Build & verify package
+    runs-on: ubuntu-latest
+    outputs:
+      supported-python-versions: ${{ steps.baipp.outputs.supported_python_classifiers_json_array }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: hynek/build-and-inspect-python-package@67230f7b8410ae0052b39c1efc89d89fff43ff10 # v3.0.2
+      id: baipp
+
+  pytest:
+    name: Test
+    needs: [build-package]
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ${{ fromJson(needs.build-package.outputs.supported-python-versions) }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: uv sync
-      - name: Run tests
-        run: uv run pytest
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Setup uv
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Run Tox
+      env:
+        PYTHON_VERSION: ${{ matrix.python-version }}
+        TAP_TICKETSWAP_BING_ADS_DEVELOPER_TOKEN: ${{ secrets.TAP_TICKETSWAP_BING_ADS_DEVELOPER_TOKEN }}
+        TAP_TICKETSWAP_BING_ADS_OAUTH_CLIENT_ID: ${{ secrets.TAP_TICKETSWAP_BING_ADS_OAUTH_CLIENT_ID }}
+        TAP_TICKETSWAP_BING_ADS_OAUTH_CLIENT_SECRET: ${{ secrets.TAP_TICKETSWAP_BING_ADS_OAUTH_CLIENT_SECRET }}
+        TAP_TICKETSWAP_BING_ADS_REFRESH_TOKEN: ${{ secrets.TAP_TICKETSWAP_BING_ADS_REFRESH_TOKEN }}
+      run: uvx --with=tox-uv tox -e "$PYTHON_VERSION"
+
+  typing:
+    name: Type Checking
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Setup uv
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+    - name: Run Tox
+      run: >
+        uvx
+        --managed-python
+        --with=tox-uv
+        tox -e typing
