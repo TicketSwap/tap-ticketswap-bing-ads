@@ -53,9 +53,12 @@ Prerequisites: Python 3.10–3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
-uv run pytest
+uv run pytest tests/test_core.py
 uv run tap-ticketswap-bing-ads --help
 ```
+
+`uv run pytest` also runs the SDK's standard tap tests against the API, which need
+the `TAP_TICKETSWAP_BING_ADS_*` credentials from `.env.example`.
 
 ### Testing with [Meltano](https://www.meltano.com)
 

@@ -15,6 +15,8 @@ from bingads.service_client import ServiceClient
 from singer_sdk.streams import Stream
 
 if TYPE_CHECKING:
+    from singer_sdk.helpers.types import Context
+
     from tap_ticketswap_bing_ads.tap import TapBingAds
 
 API_VERSION = 13
@@ -81,7 +83,7 @@ class BingAdsStream(Stream):
             authorization_data=self.authorization_data(account_id),
         )
 
-    def post_process(self, row: dict, context: dict | None = None) -> dict | None:  # noqa: ARG002
+    def post_process(self, row: dict, context: Context | None = None) -> dict | None:  # noqa: ARG002
         """Coerce raw string values from the report CSV to their schema types."""
         for key, prop in self.schema.get("properties", {}).items():
             if key not in row:
